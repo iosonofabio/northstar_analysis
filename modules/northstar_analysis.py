@@ -84,7 +84,6 @@ def atlas_averages_to_tsnedf(new_metadata,new_counttable,**kwargs):
     #instantiate class
     sa = northstar.Averages(
             atlas=atlas,
-            new_data=new_counttable,
             n_cells_per_type=kwargs['weights_atlas_cells'],
             n_features_per_cell_type=kwargs['n_features_per_cell_type'],
             n_features_overdispersed=kwargs['n_features_overdispersed'],
@@ -97,7 +96,7 @@ def atlas_averages_to_tsnedf(new_metadata,new_counttable,**kwargs):
             resolution_parameter=kwargs['resolution_parameter'],
             normalize_counts=True,
             )
-    sa()
+    sa.fit(new_counttable)
 
     # add new membership to metadata
     idx = new_counttable.columns
@@ -148,7 +147,6 @@ def atlas_averages_annotationOnly(new_metadata,new_counttable,**kwargs):
     #instantiate class
     sa = northstar.Averages(
             atlas=atlas,
-            new_data=new_counttable,
             n_cells_per_type=kwargs['weights_atlas_cells'],
             n_features_per_cell_type=kwargs['n_features_per_cell_type'],
             n_features_overdispersed=kwargs['n_features_overdispersed'],
@@ -161,7 +159,7 @@ def atlas_averages_annotationOnly(new_metadata,new_counttable,**kwargs):
             resolution_parameter=kwargs['resolution_parameter'],
             normalize_counts=True,
             )
-    sa()
+    sa.fit(new_counttable)
 
     n_fixed = len(sa.cell_types)
     idx = list(sa.cell_types)+list(new_counttable.columns)
@@ -191,7 +189,6 @@ def atlas_subsamples_to_tsnedf(new_metadata,new_counttable,**kwargs):
     #instantiate class
     no = northstar.Subsample(
             atlas=atlas,
-            new_data=new_counttable,
             features=None,
             n_features_per_cell_type=kwargs['n_features_per_cell_type'],
             n_features_overdispersed=kwargs['n_features_overdispersed'],
@@ -204,7 +201,7 @@ def atlas_subsamples_to_tsnedf(new_metadata,new_counttable,**kwargs):
             normalize_counts=True,
             )
     
-    no()
+    no.fit(new_counttable)
 
     # add new membership to metadata
     idx = new_counttable.columns
