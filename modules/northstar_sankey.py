@@ -22,7 +22,7 @@ def rgb_to_hex(list_vals):
 
 
 
-def sankey(dataframe,column_order=None,**kwds):
+def sankey(dataframe,column_order=None, colorDict=None, **kwds):
     """
     necessary keywords:
     left_column, right_column,figure_name,savedir,close_plot
@@ -49,15 +49,18 @@ def sankey(dataframe,column_order=None,**kwds):
     keys = [str(f) for f in set(list(dataframe[left_col].unique())+list(dataframe[right_col].unique()))]
     keys = list(set(list(dataframe[left_col].unique())+list(dataframe[right_col].unique())))
     annotated_names = ['Astrocyte', 'Endothelial', 'Microglia', 'Neuron', 
-                                           'OPC', 'Oligodendrocyte', 'Neoplastic', 'Immune cell']
-    addl = set(dataframe[right_col].unique()).difference(set(annotated_names))
-    keys = annotated_names+list(addl)
-    values=sns.color_palette('Paired',len(keys))
-    values_hex = rgb_to_hex(values)
+                       'OPC', 'Oligodendrocyte', 'Neoplastic', 'Immune cell']
     
-    colors = dict(zip(keys,values_hex))
-    colors[-1]='gray'
-    colorDict = colors
+    if colorDict is None:
+        addl = set(dataframe[right_col].unique()).difference(set(annotated_names))
+        keys = annotated_names+list(addl)
+        values=sns.color_palette('Paired',len(keys))
+        values_hex = rgb_to_hex(values)
+        colors = dict(zip(keys,values_hex))
+        colorDict = colors
+    else:
+        colorDict = dict(colorDict)
+    colorDict[-1]='gray'
 
     if leftWeight is None:
         leftWeight = []

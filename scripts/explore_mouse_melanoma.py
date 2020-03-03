@@ -305,7 +305,11 @@ if __name__ == '__main__':
     df3 = test_combinations(params_dict3, atlas_sub, cancer_data, repeats=5)
     fdn = '../data/HCA/melanoma/northstar_predictions/'
     df3.to_csv(fdn+'results_grid3.tsv', sep='\t', index=True)
-    accs = df3[['n_features_overdispersed', 'resolution_parameter', 'accuracy']].groupby(['n_features_overdispersed', 'resolution_parameter']).mean()['accuracy'].unstack('resolution_parameter')
+    accs = (df3[['n_features_overdispersed', 'resolution_parameter', 'accuracy']]
+            .groupby(['n_features_overdispersed', 'resolution_parameter'])
+            .mean()
+            ['accuracy']
+            .unstack('resolution_parameter'))
 
     print('Plot heatmap for those two params only')
     fig, ax = plt.subplots(figsize=(5, 5))
@@ -318,6 +322,30 @@ if __name__ == '__main__':
     for tk in ax.get_yticklabels():
         tk.set_rotation(0)
     fig.tight_layout()
+
+    if False:
+        print('Plot runtime versus accuracy')
+        data = df3.loc[(df3['resolution_parameter'] <= 0.008) & (df3['resolution_parameter'] >= 0.0008), ['accuracy', 'runtime']]
+        data['accuracy'] *= 100
+        fig, ax = plt.subplots(figsize=(4, 4))
+        sns.kdeplot(data['accuracy'], data['runtime'], ax=ax, alpha=0.8)
+        ax.scatter(data['accuracy'], data['runtime'], alpha=0.1, s=10, zorder=15, color='k')
+        ax.grid(True)
+        ax.set_xlabel('% correct assignments')
+        ax.set_ylabel('Runtime [s]')
+        fig.tight_layout()
+
+    print('Print runtime for accurate runs')
+    data = df3.loc[df3['accuracy'] > 0.8, 'runtime']
+    fig, ax = plt.subplots(figsize=(4, 4))
+    sns.kdeplot(data, ax=ax, alpha=0.8, lw=2)
+    ax.legend().remove()
+    ax.grid(True)
+    ax.set_xlabel('Runtime [s]')
+    ax.set_ylabel('Density')
+    fig.tight_layout()
+    fig.savefig('../figures/melanoma_runtime_goodruns.svg')
+    fig.savefig('../figures/melanoma_runtime_goodruns.png')
 
     plt.ion()
     plt.show()
