@@ -354,9 +354,9 @@ if __name__ == '__main__':
     print('Plot heatmap for those two params only')
     fig, ax = plt.subplots(figsize=(5, 5))
     sns.heatmap(
-        np.maximum(accs, 0.9),
+        accs,
         ax=ax,
-        vmin=0.9,
+        vmin=0.1,
         vmax=1,
         )
     for tk in ax.get_yticklabels():
