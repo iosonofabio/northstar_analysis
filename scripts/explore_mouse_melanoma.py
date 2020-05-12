@@ -6,6 +6,7 @@ content:    Explore a few more datasets available online.
 '''
 import os
 import sys
+import time
 import requests
 import pandas as pd
 import numpy as np
@@ -125,6 +126,19 @@ def define_accuracy(true_types, cell_types):
     return match
 
 
+def subsample_dataset(cancer_data, n):
+    if (n == 'all') or (n == cancer_data['meta'].shape[0]):
+        return cancer_data
+    ind = np.arange(cancer_data['meta'].shape[0])
+    np.random.shuffle(ind)
+    ind = ind[:n]
+    tmp = {
+        'counts': cancer_data['counts'].iloc[:, ind],
+        'meta': cancer_data['meta'].iloc[ind],
+        }
+    return tmp
+
+
 def test_conditions(all_names, conditions, atlas_sub, cancer_data, repeats=1):
     import time
     results = []
@@ -133,17 +147,23 @@ def test_conditions(all_names, conditions, atlas_sub, cancer_data, repeats=1):
         print('{:} / {:}: {:}'.format(ic + 1, ncomb, comb))
         for ir in range(repeats):
             kwargs = dict(zip(all_names, comb))
+            if 'n' in kwargs:
+                n = kwargs.pop('n')
+                tmp = subsample_dataset(cancer_data, n)
+            else:
+                tmp = cancer_data
             t0 = time.time()
             no = northstar.Subsample(
                 atlas=atlas_sub,
                 **kwargs,
                 )
-            cell_types = no.fit_transform(cancer_data['counts'])
+            cell_types = no.fit_transform(tmp['counts'])
             t1 = time.time()
-            acc = define_accuracy(cancer_data['meta']['Cell_type'].values, cell_types)
+            acc = define_accuracy(tmp['meta']['Cell_type'].values, cell_types)
             kwargs['accuracy'] = acc
             kwargs['runtime'] = t1 - t0
             kwargs['repeat'] = ir + 1
+            kwargs['ncells'] = tmp['meta'].shape[0]
             results.append(kwargs)
 
     return pd.DataFrame(results)
@@ -214,18 +234,7 @@ if __name__ == '__main__':
     cancer_data = ingest_melanoma_data()
 
     af = northstar.fetch_atlas.AtlasFetcher()
-    #atlas_sub = af.fetch_atlas('TabulaMuris_2018_skin', kind='subsample')
     atlas_sub = af.fetch_atlas('TabulaMuris_2018_marrow', kind='subsample')
-
-    print('Rename a few cell types in the atlas')
-    #atlas_sub['cell_types'] = atlas_sub['cell_types'].map({
-    #    'Oligodendrocyte': 'Oligodendrocyte',
-    #    'Vascular': 'Endothelial',
-    #    'Astrocyte': 'Astrocyte',
-    #    'Neuron': 'Neuron',
-    #    'OPC': 'OPC',
-    #    'microglia': 'Immune cell'},
-    #    )
 
     print('Classify and cluster cells with default parameters')
     no = northstar.Subsample(
@@ -234,6 +243,41 @@ if __name__ == '__main__':
     cell_types = no.fit_transform(cancer_data['counts'])
     acc = define_accuracy(cancer_data['meta']['Cell_type'].values, cell_types)
     print(acc)
+
+    if True:
+        print('Measure runtime as a function of cell numbers')
+        params_dict = dict(
+            n_features_overdispersed=[200, 600, 1200],
+            n=[100, 600, 1500, 3000, 'all'],
+            )
+        df = test_combinations(params_dict, atlas_sub, cancer_data, repeats=3)
+        results = df[['n_features_overdispersed', 'ncells', 'runtime']].groupby(['n_features_overdispersed', 'ncells']).mean()
+        results['runtime_std'] = df[['n_features_overdispersed', 'ncells', 'runtime']].groupby(['n_features_overdispersed', 'ncells']).std()['runtime']
+
+        fig, ax = plt.subplots(figsize=(5, 2.5))
+        cmap = dict(zip(params_dict['n_features_overdispersed'], sns.color_palette(n_colors=10)))
+        for nfea, datum in results.groupby('n_features_overdispersed'):
+            x = datum.index.get_level_values('ncells')
+            y = datum['runtime']
+            dy = datum['runtime_std']
+            ax.plot(x, y, lw=2, label=str(nfea), color=cmap[nfea])
+            ax.fill_between(
+                    x, y - dy, y + dy,
+                    lw=1, color=cmap[nfea], alpha=0.2,
+                    )
+        ax.grid(True)
+        ax.set_xlabel('Number of cells')
+        ax.set_ylabel('Runtime [s]')
+        ax.legend(
+                loc='upper left',
+                title='Number of\noverdisperded\nfeatures:',
+                bbox_to_anchor=(1.01, 1.01),
+                bbox_transform=ax.transAxes,
+                )
+        fig.tight_layout()
+        fig.savefig('../figures/melanoma_ncells_vs_runtime.svg')
+        fig.savefig('../figures/melanoma_ncells_vs_runtime.png')
+
 
     if False:
         ct1 = np.unique(cell_types)
@@ -292,36 +336,39 @@ if __name__ == '__main__':
         sns.heatmap(counts_plot, ax=ax)
         fig.tight_layout()
 
-    print('Vice versa, modify only the two key parameters and see')
-    params_dict3 = dict(
-        n_features_per_cell_type=[15],
-        n_pcs=[15],
-        n_neighbors=[20],
-        distance_metric=['correlation'],
-        threshold_neighborhood=[0.8],
-        resolution_parameter=[1e-5, 3e-5, 6e-5, 0.0001, 0.0002, 0.0003, 0.0006, 0.001, 0.002, 0.003, 0.005, 0.008, 0.01, 0.02, 0.05],
-        n_features_overdispersed=[50, 75, 100, 150, 200, 250, 300, 600, 1000, 1500, 2000],
-        )
-    df3 = test_combinations(params_dict3, atlas_sub, cancer_data, repeats=5)
-    fdn = '../data/HCA/melanoma/northstar_predictions/'
-    df3.to_csv(fdn+'results_grid3.tsv', sep='\t', index=True)
-    accs = (df3[['n_features_overdispersed', 'resolution_parameter', 'accuracy']]
-            .groupby(['n_features_overdispersed', 'resolution_parameter'])
-            .mean()
-            ['accuracy']
-            .unstack('resolution_parameter'))
+    if False:
+        print('Vice versa, modify only the two key parameters and see')
+        if False:
+            params_dict3 = dict(
+                n_features_per_cell_type=[15],
+                n_pcs=[15],
+                n_neighbors=[20],
+                distance_metric=['correlation'],
+                threshold_neighborhood=[0.8],
+                resolution_parameter=[1e-5, 3e-5, 6e-5, 0.0001, 0.0002, 0.0003, 0.0006, 0.001, 0.002, 0.003, 0.005, 0.008, 0.01, 0.02, 0.05],
+                n_features_overdispersed=[50, 75, 100, 150, 200, 250, 300, 600, 1000, 1500, 2000],
+                )
+            df3 = test_combinations(params_dict3, atlas_sub, cancer_data, repeats=5)
+            fdn = '../data/HCA/melanoma/northstar_predictions/'
+            df3.to_csv(fdn+'results_grid3.tsv', sep='\t', index=True)
+        df3 = pd.read_csv(fdn+'results_grid3.tsv', sep='\t', index_col=0)
+        accs = (df3[['n_features_overdispersed', 'resolution_parameter', 'accuracy']]
+                .groupby(['n_features_overdispersed', 'resolution_parameter'])
+                .mean()
+                ['accuracy']
+                .unstack('resolution_parameter'))
 
-    print('Plot heatmap for those two params only')
-    fig, ax = plt.subplots(figsize=(5, 5))
-    sns.heatmap(
-        accs,
-        ax=ax,
-        vmin=0.1,
-        vmax=1,
-        )
-    for tk in ax.get_yticklabels():
-        tk.set_rotation(0)
-    fig.tight_layout()
+        print('Plot heatmap for those two params only')
+        fig, ax = plt.subplots(figsize=(5, 5))
+        sns.heatmap(
+            accs,
+            ax=ax,
+            vmin=0.1,
+            vmax=1,
+            )
+        for tk in ax.get_yticklabels():
+            tk.set_rotation(0)
+        fig.tight_layout()
 
     if False:
         print('Plot runtime versus accuracy')
@@ -335,17 +382,18 @@ if __name__ == '__main__':
         ax.set_ylabel('Runtime [s]')
         fig.tight_layout()
 
-    print('Print runtime for accurate runs')
-    data = df3.loc[df3['accuracy'] > 0.8, 'runtime']
-    fig, ax = plt.subplots(figsize=(4, 4))
-    sns.kdeplot(data, ax=ax, alpha=0.8, lw=2)
-    ax.legend().remove()
-    ax.grid(True)
-    ax.set_xlabel('Runtime [s]')
-    ax.set_ylabel('Density')
-    fig.tight_layout()
-    fig.savefig('../figures/melanoma_runtime_goodruns.svg')
-    fig.savefig('../figures/melanoma_runtime_goodruns.png')
+    if False:
+        print('Print runtime for accurate runs')
+        data = df3.loc[df3['accuracy'] > 0.8, 'runtime']
+        fig, ax = plt.subplots(figsize=(4, 4))
+        sns.kdeplot(data, ax=ax, alpha=0.8, lw=2)
+        ax.legend().remove()
+        ax.grid(True)
+        ax.set_xlabel('Runtime [s]')
+        ax.set_ylabel('Density')
+        fig.tight_layout()
+        fig.savefig('../figures/melanoma_runtime_goodruns.svg')
+        fig.savefig('../figures/melanoma_runtime_goodruns.png')
 
     plt.ion()
     plt.show()
