@@ -236,6 +236,9 @@ if __name__ == '__main__':
     af = northstar.fetch_atlas.AtlasFetcher()
     atlas_sub = af.fetch_atlas('TabulaMuris_2018_marrow', kind='subsample')
 
+
+    sys.exit()
+
     print('Classify and cluster cells with default parameters')
     no = northstar.Subsample(
         atlas=atlas_sub,

@@ -21,7 +21,7 @@ import northstar
 
 if __name__ == '__main__':
 
-    resa = {'scvi': {}, 'northstar': {}}
+    resa = {'scvi': {}, 'northstar': {}, 'scmap': {}}
 
     print('Load northstar')
     with open('../data_for_figures/results_kidney_various_number_of_training_cell_types.pkl', 'rb') as f:
@@ -44,13 +44,32 @@ if __name__ == '__main__':
             with open(fn, 'rb') as f:
                 resd = pickle.load(f)
             ress.append(resd)
-
     keys = ['na', 'rep', 'ntot', 'gof', 'time']
     resd = [{key: x[key] for key in keys} for x in ress]
     res = pd.DataFrame(resd)
 
     resa['scvi']['avg'] = res[['na', 'gof', 'time']].groupby('na').mean()
     resa['scvi']['std'] = res[['na', 'gof', 'time']].groupby('na').std()
+
+    print('Load scmap')
+    reps = [1, 2, 3, 4, 5]
+    nat = [14, 15, 16, 17, 18]
+    ress = []
+    for na in nat:
+        for rep in reps:
+            fn = '../data_for_figures/scmap_kidney/result_na_{:}_rep_{:}.pkl'.format(
+                na, rep,
+                )
+            with open(fn, 'rb') as f:
+                resd = pickle.load(f)
+            ress.append(resd)
+
+    keys = ['na', 'rep', 'ntot', 'gof', 'time']
+    resd = [{key: x[key] for key in keys} for x in ress]
+    res = pd.DataFrame(resd)
+
+    resa['scmap']['avg'] = res[['na', 'gof', 'time']].groupby('na').mean()
+    resa['scmap']['std'] = res[['na', 'gof', 'time']].groupby('na').std()
 
     print('Plot results')
     colors = sns.color_palette('Dark2', n_colors=4)
@@ -69,6 +88,13 @@ if __name__ == '__main__':
             yerr=resa['scvi']['std']['time'],
             fmt='-o',
             lw=2, color=colors[2],
+            )
+    ax.errorbar(
+            resa['scmap']['avg'].index,
+            resa['scmap']['avg']['time'],
+            yerr=resa['scmap']['std']['time'],
+            fmt='-o',
+            lw=2, color=colors[3],
             )
     ax.set_xlabel('Number of cells types\nin atlas (out of 18)')
     ax.set_ylabel('Runtime [s]')
@@ -91,6 +117,14 @@ if __name__ == '__main__':
             lw=2, color=colors[2],
             label='scVI',
             )
+    ax2.errorbar(
+            resa['scmap']['avg'].index,
+            100 * resa['scmap']['avg']['gof'],
+            yerr=100 * resa['scmap']['std']['gof'],
+            fmt='-o',
+            lw=2, color=colors[3],
+            label='scmap',
+            )
     ax2.set_ylabel('Correct assignments [%]')
     ax2.set_ylim(0, 100)
     ax2.legend(
@@ -99,8 +133,8 @@ if __name__ == '__main__':
         bbox_to_anchor=(1.01, 1.01), bbox_transform=ax2.transAxes,
         )
     fig.tight_layout()
-    fig.savefig('../figures/northstar_cs_scvi_tms_kidney_performance_various_cell_type_numbers.png')
-    fig.savefig('../figures/northstar_cs_scvi_tms_kidney_performance_various_cell_type_numbers.svg')
+    fig.savefig('../figures/northstar_vs_scvi_vs_scmap_tms_kidney_performance_various_cell_type_numbers.png')
+    fig.savefig('../figures/northstar_vs_scvi_vs_scmap_tms_kidney_performance_various_cell_type_numbers.svg')
 
 
 

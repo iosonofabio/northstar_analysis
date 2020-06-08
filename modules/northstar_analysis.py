@@ -74,7 +74,7 @@ def perform_tSNE(pca_df, perplexity=None):
     return tsnedf
 
 
-def atlas_averages_to_tsnedf(new_metadata,new_counttable,**kwargs):
+def atlas_averages_to_tsnedf(new_metadata, new_counttable, **kwargs):
     savedir = kwargs['savedir']
     date = kwargs['timestamp']
     n_pcs = kwargs['n_pcs']
@@ -100,20 +100,20 @@ def atlas_averages_to_tsnedf(new_metadata,new_counttable,**kwargs):
 
     # add new membership to metadata
     idx = new_counttable.columns
-    n_fixed = len(sa.cell_types)
-    new_metadata.loc[idx,'new_class'] = sa.membership
-    new_metadata['new_class_renamed'] = [cell_type_names[f] if f in cell_type_names.keys() else 'NewClass_'+"{0:0=2d}".format(int(f)-n_fixed+1) if (f.isdigit()==True) else f for f in new_metadata['new_class']]
+    n_fixed = len(sa.cell_types_atlas)
+    new_metadata.loc[idx, 'new_class'] = sa.membership
+    new_metadata['new_class_renamed'] = [cell_type_names[f] if f in cell_type_names.keys() else 'NewClass_'+"{0:0=2d}".format(int(f)-n_fixed+1) if f.isdigit() else f for f in new_metadata['new_class']]
 
     # unweighted PCA
-    cols = list(sa.cell_types)+list(new_counttable.columns)
-    feature_selected_matrix = pd.DataFrame(index=sa.features_selected,columns=cols,data=sa.matrix)
-    normal_PCA,distance_matrix = unweighted_PCA(feature_selected_matrix,n_pcs)
+    cols = list(sa.cell_types_atlas)+list(new_counttable.columns)
+    feature_selected_matrix = pd.DataFrame(index=sa.features, columns=cols, data=sa.matrix.T)
+    normal_PCA, distance_matrix = unweighted_PCA(feature_selected_matrix, n_pcs)
 
     # perform tSNE
-    tsnedf = perform_tSNE(normal_PCA,20)
-    tsnedf.rename(index=str,columns={0:'Dim1',1:'Dim2'},inplace=True)
-    tsnedf.loc[idx,'new_membership'] = new_metadata.loc[idx,'new_class_renamed']
-    tsnedf.loc[tsnedf[:n_fixed].index,'new_membership'] = tsnedf.index[:n_fixed].map(cell_type_names)
+    tsnedf = perform_tSNE(normal_PCA, 20)
+    tsnedf.rename(index=str, columns={0: 'Dim1', 1: 'Dim2'}, inplace=True)
+    tsnedf.loc[idx, 'new_membership'] = new_metadata.loc[idx, 'new_class_renamed']
+    tsnedf.loc[tsnedf[:n_fixed].index, 'new_membership'] = tsnedf.index[:n_fixed].map(cell_type_names)
 
     # write params to json in new folder with date timestamp
     output_file = savedir+date+'/annotation_parameters_'+atlas+'_CellAtlasAverages_'+date+'.json'
@@ -128,17 +128,17 @@ def atlas_averages_to_tsnedf(new_metadata,new_counttable,**kwargs):
         file.close()
     # save feature matrix for later reference, e.g. making dotplots
     feature_selected_matrix.to_csv(savedir+date+'/feature_selected_matrix_'+date+'.csv')
-        
-        
-    atlastypes = list(np.sort(tsnedf.loc[tsnedf[:n_fixed].index,'new_membership']))
+
+    atlastypes = list(np.sort(tsnedf.loc[tsnedf[:n_fixed].index, 'new_membership']))
     newtypes = list(set(new_metadata['new_class_renamed']).difference(atlastypes))
     celltypes = atlastypes+list(np.sort(newtypes))
-    class_lut = dict(zip(celltypes,list(range(1,len(celltypes)+1))))
+    class_lut = dict(zip(celltypes, list(range(1, len(celltypes)+1))))
     tsnedf['class'] = tsnedf['new_membership'].map(class_lut)
-    
-    return tsnedf,celltypes,distance_matrix
 
-def atlas_averages_annotationOnly(new_metadata,new_counttable,**kwargs):
+    return tsnedf, celltypes, distance_matrix
+
+
+def atlas_averages_annotationOnly(new_metadata, new_counttable, **kwargs):
 
     n_pcs = kwargs['n_pcs']
     atlas = kwargs['atlas']
@@ -169,13 +169,13 @@ def atlas_averages_annotationOnly(new_metadata,new_counttable,**kwargs):
     new_metadata['new_class_renamed'] = [cell_type_names[f] if f in cell_type_names.keys() else 'NewClass_'+"{0:0=2d}".format(int(f)-n_fixed+1) if (f.isdigit()==True) else f for f in new_metadata['new_class']]
     annotdf.loc[idx,'new_membership'] = new_metadata.loc[idx,'new_class_renamed']
     annotdf.loc[annotdf[:n_fixed].index,'new_membership'] = annotdf.index[:n_fixed].map(cell_type_names)
-    
+
     atlastypes = list(np.sort(annotdf.loc[annotdf[:n_fixed].index,'new_membership']))
     newtypes = list(set(new_metadata['new_class_renamed']).difference(atlastypes))
     celltypes = atlastypes+list(np.sort(newtypes))
     class_lut = dict(zip(celltypes,list(range(1,len(celltypes)+1))))
     annotdf['class'] = annotdf['new_membership'].map(class_lut)
-    
+
     return annotdf
 
 
@@ -200,7 +200,7 @@ def atlas_subsamples_to_tsnedf(new_metadata,new_counttable,**kwargs):
             resolution_parameter=kwargs['resolution_parameter'],
             normalize_counts=True,
             )
-    
+
     no.fit(new_counttable)
 
     # add new membership to metadata
@@ -241,9 +241,6 @@ def atlas_subsamples_to_tsnedf(new_metadata,new_counttable,**kwargs):
     return tsnedf,celltypes
 
 
-
-
-
 def make_pairs(distmat,threshold,max_neighbors):
     """
     returns the edges (based on distance matrix indices) with the closest distance
@@ -263,6 +260,7 @@ def make_pairs(distmat,threshold,max_neighbors):
     print('Found '+str(len(pairs))+' edges.')
     print('---------------------------------------')
     return pairs
+
 
 def make_pairdf(dist_matrix,NN,tsne_df,colname):
     """ returns a dataframe with pairs and some properties
